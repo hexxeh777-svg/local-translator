@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Переводчик</title>
+    <style>
+        body {
+            background-color: #121212;
+            margin: 0;
+            padding: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+
+        .window {
+            width: 850px;
+            height: 520px;
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+        }
+
+        .toolbar {
+            padding: 12px;
+            background-color: #252525;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            border-bottom: 1px solid #333;
+        }
+
+        .toolbar button {
+            padding: 8px 16px;
+            font-family: 'Arial', Segoe UI, sans-serif;
+            font-size: 14px;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+            min-width: 80px;
+        }
+
+        .toolbar button:hover {
+            background-color: #444;
+        }
+
+        .toolbar button:active {
+            transform: translateY(1px);
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            gap: 10px;
+            padding: 0;
+        }
+
+        .input-area, .output-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #222;
+            border-right: 1px solid #333;
+            overflow: hidden;
+        }
+
+        .input-area:last-child {
+            border-right: none;
+        }
+
+        .area-header {
+            padding: 10px 15px;
+            background-color: #2a2a2a;
+            color: #aaa;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .area-header select {
+            background-color: #333;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .area-header span {
+            font-weight: bold;
+            color: #ffffff;
+            font-size: 14px;
+        }
+
+        textarea {
+            flex: 1;
+            padding: 18px;
+            color: #e0e0e0;
+            font-size: 16px;
+            line-height: 1.5;
+            overflow-y: auto;
+            outline: none;
+            background-color: #222;
+            border: none;
+            resize: none;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        textarea:focus {
+            background-color: #222;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            padding: 12px;
+            gap: 10px;
+            background-color: #252525;
+            border-top: 1px solid #333;
+        }
+
+        .controls button {
+            padding: 8px 16px;
+            font-size: 14px;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .controls button:hover {
+            background-color: #444;
+        }
+
+        .controls button#swapBtn {
+            background-color: #1976d2;
+        }
+
+        .controls button#swapBtn:hover {
+            background-color: #1565c0;
+        }
+
+        .note {
+            font-size: 13px;
+            color: #888;
+            text-align: center;
+            margin-top: 6px;
+        }
+
+        .loading {
+            color: #4fc3f7;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<div class="window">
+    <div class="toolbar">
+        <button id="translateBtn">Перевести</button>
+        <button id="swapBtn">🔄</button>
+        <button id="clearBtn">Очистить</button>
+    </div>
+
+    <div class="main-content">
+        <div class="input-area">
+            <div class="area-header">
+                <span>Исходный текст</span>
+                <select id="sourceLang">
+                    <option value="auto" selected>Авто</option>
+                    <option value="ru">Русский</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+            <textarea id="transcript" placeholder="Вставьте текст для перевода..."></textarea>
+        </div>
+
+        <div class="output-area">
+            <div class="area-header">
+                <span>Перевод</span>
+                <span id="targetLangLabel">English</span>
+            </div>
+            <textarea id="translatedText" placeholder="Перевод появится здесь..." readonly></textarea>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="copyBtn">Копировать</button>
+        <button id="exportBtn">Экспорт TXT</button>
+    </div>
+
+    <div class="note">Локальный переводчик • Словарь из dictionary.js</div>
+</div>
+
+<!-- Подключаем файл словаря -->
+<script src="dictionary.js"></script>
+<script>
+    // Глобальная переменная dict должна быть определена в dictionary.js
+    // Пример содержимого dictionary.js: var dict = {"hello": "привет", "world": "мир"};
+
+    const sourceText = document.getElementById('transcript');
+    const translatedText = document.getElementById('translatedText');
+    const sourceLang = document.getElementById('sourceLang');
+    const targetLangLabel = document.getElementById('targetLangLabel');
+    const translateBtn = document.getElementById('translateBtn');
+    const swapBtn = document.getElementById('swapBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const exportBtn = document.getElementById('exportBtn');
+
+    // --- Функция определения языка ---
+    function detectLanguage(text) {
+        const hasCyrillic = /[\u0400-\u04FF]/.test(text);
+        const hasLatin = /[a-zA-Z]/.test(text);
+
+        if (hasCyrillic && !hasLatin) return 'ru';
+        if (hasLatin && !hasCyrillic) return 'en';
+        return null;
+    }
+
+    function translateText() {
+        // Проверяем, что словарь загружен
+        if (typeof dict === 'undefined' || !dict) {
+            translatedText.value = '❌ Словарь не загружен';
+            return;
+        }
+
+        const text = sourceText.value.trim();
+        if (!text) {
+            translatedText.value = '';
+            return;
+        }
+
+        let fromLang = sourceLang.value;
+
+        // Автоопределение
+        if (fromLang === 'auto') {
+            fromLang = detectLanguage(text);
+            if (!fromLang) {
+                translatedText.value = '❌ Не удалось определить язык';
+                return;
+            }
+        }
+
+        // Автоматически выбираем целевой язык: противоположный
+        let toLang;
+        if (fromLang === 'ru') {
+            toLang = 'en';
+            targetLangLabel.textContent = 'English';
+        } else if (fromLang === 'en') {
+            toLang = 'ru';
+            targetLangLabel.textContent = 'Русский';
+        } else {
+            translatedText.value = '❌ Неизвестный язык';
+            return;
+        }
+
+        if (fromLang === toLang) {
+            translatedText.value = text;
+            return;
+        }
+
+        translatedText.value = 'Перевожу...';
+
+        let result = text;
+        const lowerText = text.toLowerCase(); // Преобразуем ввод в нижний регистр для поиска
+
+        if (fromLang === 'ru' && toLang === 'en') {
+            // Поиск по значениям (русский -> английский) - регистронезависимо
+            for (const [eng, rus] of Object.entries(dict)) {
+                if (rus.toLowerCase() === lowerText) {
+                    result = eng;
+                    break;
+                }
+            }
+        } else if (fromLang === 'en' && toLang === 'ru') {
+            // Поиск по ключам (английский -> русский) - регистронезависимо
+            for (const [eng, rus] of Object.entries(dict)) {
+                if (eng.toLowerCase() === lowerText) {
+                    result = rus;
+                    break;
+                }
+            }
+        }
+
+        translatedText.value = result;
+    }
+
+    swapBtn.addEventListener('click', () => {
+        const tempLang = sourceLang.value;
+        if (tempLang === 'ru') {
+            sourceLang.value = 'en';
+            targetLangLabel.textContent = 'Русский';
+        } else if (tempLang === 'en') {
+            sourceLang.value = 'ru';
+            targetLangLabel.textContent = 'English';
+        } else {
+            // Если было "auto", то просто оставляем как есть
+        }
+
+        // Меняем текст местами
+        const tempText = sourceText.value;
+        sourceText.value = translatedText.value;
+        translatedText.value = tempText;
+    });
+
+    clearBtn.addEventListener('click', () => {
+        sourceText.value = '';
+        translatedText.value = '';
+        targetLangLabel.textContent = 'English'; // Сброс
+    });
+
+    copyBtn.addEventListener('click', () => {
+        if (translatedText.value) {
+            navigator.clipboard.writeText(translatedText.value)
+                .then(() => {
+                    copyBtn.textContent = '✅ Скопировано!';
+                    setTimeout(() => copyBtn.textContent = 'Копировать', 1500);
+                })
+                .catch(() => {
+                    copyBtn.textContent = '❌ Ошибка';
+                    setTimeout(() => copyBtn.textContent = 'Копировать', 1500);
+                });
+        }
+    });
+
+    exportBtn.addEventListener('click', () => {
+        if (!translatedText.value) return;
+        const blob = new Blob([translatedText.value], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'перевод.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+
+    translateBtn.addEventListener('click', translateText);
+
+    sourceText.addEventListener('input', () => {
+        clearTimeout(window.autoTranslateTimer);
+        window.autoTranslateTimer = setTimeout(translateText, 500);
+    });
+</script>
+
+</body>
+</html>
